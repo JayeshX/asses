@@ -8,7 +8,7 @@ export function VirtualList({ data, rowHeight = 60, containerHeight = 600 }) {
   const visibleRows = Math.ceil(containerHeight / rowHeight);
   const totalHeight = data.length * rowHeight;
   const startIndex = Math.floor(scrollTop / rowHeight);
-  const endIndex = Math.min(startIndex + visibleRows + 10, data.length); // +10 overscan
+  const endIndex = Math.min(startIndex + visibleRows + 10, data.length);
   const visibleData = data.slice(startIndex, endIndex);
   const offsetY = startIndex * rowHeight;
   

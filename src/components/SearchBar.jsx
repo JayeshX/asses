@@ -13,6 +13,7 @@ export function SearchBar({ onSearch }) {
   
   return (
     <div className="search-bar">
+      <img src="\test_Search-3.svg" alt="Search" className="search-icon" />
       <input
         type="text"
         placeholder="Search Customers"

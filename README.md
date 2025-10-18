@@ -1,16 +1,10 @@
-# React + Vite
+Customer List - Frontend Assignment
+- **Infinite Scroll**: Loads 30 rows initially, then progressively loads 100 more records as you scroll
+- **Debounced Search** (250ms): Real-time search across customer name, email, and phone number
+- **Column Sorting**: Click column headers to sort by name, score, or last message date (ascending/descending)
+- **Sticky Header**: Table header remains visible while scrolling through records
+- **Row Hover Effects**: Visual feedback when hovering over customer rows
+- **Checkbox Selection**: Select individual customers or all displayed customers
+- **Dynamic Count Badge**: Shows the number of currently loaded/filtered customers
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+assets are in public folder

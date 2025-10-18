@@ -6,7 +6,8 @@ export function FilterDropdown() {
   return (
     <div className="filter-container">
       <button onClick={() => setIsOpen(!isOpen)}>
-        🔽 Add Filters
+        <img src="\test_Filter.svg" alt="Filter" className="filter-icon" />
+        Add Filters
       </button>
       {isOpen && (
         <div className="filter-menu">

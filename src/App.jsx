@@ -1,27 +1,33 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { initDB, getAllCustomers, getCustomerCount } from './utils/db';
+import { initDB, getCustomerCount, getCustomersBatch, searchCustomers } from './utils/db';
 import { SearchBar } from './components/SearchBar';
 import { FilterDropdown } from './components/FilterDropdrown';
 import './App.css';
 
 function App() {
-  const [allCustomers, setAllCustomers] = useState([]); // All data in memory
-  const [filteredCustomers, setFilteredCustomers] = useState([]); // After search/sort
-  const [displayedCustomers, setDisplayedCustomers] = useState([]); // Currently displayed rows
+  const [displayedCustomers, setDisplayedCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [error, setError] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState(new Set());
   
-  const ROWS_PER_PAGE = 30;
+  const dbRef = useRef(null);
   const observerTarget = useRef(null);
+  const BATCH_SIZE = 30;
 
-  // Load all data from IndexedDB on mount
+  // initial data load
   useEffect(() => {
-    async function loadData() {
+    async function loadInitialData() {
       try {
         const db = await initDB();
+        dbRef.current = db;
+        
         const count = await getCustomerCount(db);
         
         if (count === 0) {
@@ -30,17 +36,13 @@ function App() {
           return;
         }
         
-        console.log(`Loading ${count} customers from IndexedDB...`);
-        const data = await getAllCustomers(db);
-        console.log('Data loaded successfully');
+        setTotalCount(count);
         
-        setAllCustomers(data);
-        setFilteredCustomers(data);
-        
-        // Initially display first 30 rows
-        setDisplayedCustomers(data.slice(0, ROWS_PER_PAGE));
-        setHasMore(data.length > ROWS_PER_PAGE);
+        const firstBatch = await getCustomersBatch(db, 1, BATCH_SIZE);
+        setDisplayedCustomers(firstBatch);
+        setHasMore(firstBatch.length === BATCH_SIZE);
         setLoading(false);
+        
       } catch (err) {
         console.error('Error loading data:', err);
         setError(err.message);
@@ -48,14 +50,14 @@ function App() {
       }
     }
     
-    loadData();
+    loadInitialData();
   }, []);
 
-  // Infinite scroll observer
+  // infinite scroll observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && !isSearching) {
           loadMoreRows();
         }
       },
@@ -71,47 +73,69 @@ function App() {
         observer.unobserve(observerTarget.current);
       }
     };
-  }, [hasMore, loading, page, filteredCustomers]);
+  }, [hasMore, loading, loadingMore, isSearching, displayedCustomers]);
 
-  // Load more rows
-  const loadMoreRows = useCallback(() => {
-    const nextPage = page + 1;
-    const startIndex = 0;
-    const endIndex = nextPage * ROWS_PER_PAGE;
+  // loaidng more rows
+  const loadMoreRows = useCallback(async () => {
+    if (!dbRef.current || loadingMore) return;
     
-    const newDisplayed = filteredCustomers.slice(startIndex, endIndex);
-    setDisplayedCustomers(newDisplayed);
-    setPage(nextPage);
+    setLoadingMore(true);
     
-    if (endIndex >= filteredCustomers.length) {
-      setHasMore(false);
+    try {
+      const lastCustomer = displayedCustomers[displayedCustomers.length - 1];
+      const startId = lastCustomer ? lastCustomer.id + 1 : 1;
+      
+      const nextBatch = await getCustomersBatch(dbRef.current, startId, BATCH_SIZE);
+      
+      if (nextBatch.length > 0) {
+        setDisplayedCustomers(prev => [...prev, ...nextBatch]);
+        setHasMore(nextBatch.length === BATCH_SIZE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Error loading more customers:', err);
+    } finally {
+      setLoadingMore(false);
     }
-  }, [page, filteredCustomers]);
+  }, [displayedCustomers, loadingMore]);
 
-  // Search handler
-  const handleSearch = useCallback((query) => {
+  // search handler
+  const handleSearch = useCallback(async (query) => {
+    setSearchQuery(query);
+    
     if (!query.trim()) {
-      setFilteredCustomers(allCustomers);
-      setDisplayedCustomers(allCustomers.slice(0, ROWS_PER_PAGE));
-      setPage(1);
-      setHasMore(allCustomers.length > ROWS_PER_PAGE);
+      // reset to first batch
+      setIsSearching(false);
+      setSearching(true);
+      
+      try {
+        const firstBatch = await getCustomersBatch(dbRef.current, 1, BATCH_SIZE);
+        setDisplayedCustomers(firstBatch);
+        setHasMore(true);
+      } catch (err) {
+        console.error('Error resetting data:', err);
+      } finally {
+        setSearching(false);
+      }
       return;
     }
     
-    const lowerQuery = query.toLowerCase();
-    const filtered = allCustomers.filter(c => 
-      c.name.toLowerCase().includes(lowerQuery) ||
-      c.email.toLowerCase().includes(lowerQuery) ||
-      c.phone.includes(query)
-    );
+    setIsSearching(true);
+    setSearching(true);
     
-    setFilteredCustomers(filtered);
-    setDisplayedCustomers(filtered.slice(0, ROWS_PER_PAGE));
-    setPage(1);
-    setHasMore(filtered.length > ROWS_PER_PAGE);
-  }, [allCustomers]);
+    try {
+      const results = await searchCustomers(dbRef.current, query, 1000);
+      setDisplayedCustomers(results);
+      setHasMore(false);
+    } catch (err) {
+      console.error('Search error:', err);
+    } finally {
+      setSearching(false);
+    }
+  }, []);
 
-  // Sort handler
+  // sort handler
   const handleSort = useCallback((key) => {
     const direction = 
       sortConfig.key === key && sortConfig.direction === 'asc' 
@@ -120,21 +144,38 @@ function App() {
     
     setSortConfig({ key, direction });
     
-    const sorted = [...filteredCustomers].sort((a, b) => {
+    const sorted = [...displayedCustomers].sort((a, b) => {
       if (a[key] < b[key]) return direction === 'asc' ? -1 : 1;
       if (a[key] > b[key]) return direction === 'asc' ? 1 : -1;
       return 0;
     });
     
-    setFilteredCustomers(sorted);
-    setDisplayedCustomers(sorted.slice(0, page * ROWS_PER_PAGE));
-  }, [filteredCustomers, sortConfig, page]);
+    setDisplayedCustomers(sorted);
+  }, [displayedCustomers, sortConfig]);
+
+  const toggleSelectAll = () => {
+    if (selectedCustomers.size === displayedCustomers.length) {
+      setSelectedCustomers(new Set());
+    } else {
+      setSelectedCustomers(new Set(displayedCustomers.map(c => c.id)));
+    }
+  };
+
+  const toggleSelectCustomer = (id) => {
+    const newSelected = new Set(selectedCustomers);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedCustomers(newSelected);
+  };
 
   if (loading) {
     return (
       <div className="loading-container">
         <h2>Loading customers...</h2>
-        <p>Please wait while we load data from IndexedDB</p>
+        <p>Please wait...</p>
       </div>
     );
   }
@@ -142,7 +183,7 @@ function App() {
   if (error) {
     return (
       <div className="loading-container">
-        <h2>❌ Error</h2>
+        <h2>Error</h2>
         <p>{error}</p>
         <p>
           <a href="/seed.html">Click here to seed the database</a>
@@ -154,21 +195,41 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>All Customers <span className="count">{filteredCustomers.length}</span></h1>
+        <img src="/logo.png" alt="DoubleTick" className="logo" />
       </header>
+
+      <div className="page-title">
+        <h1>All Customers</h1>
+        <span className="count-badge">{displayedCustomers.length.toLocaleString()}</span>
+      </div>
 
       <div className="controls">
         <SearchBar onSearch={handleSearch} />
         <FilterDropdown />
       </div>
 
+      {/* Show inline searching indicator */}
+      {searching && (
+        <div className="search-loading">
+          <div className="search-spinner"></div>
+          <span>Searching...</span>
+        </div>
+      )}
+
       <div className="table-container">
         <table className="customer-table">
           <thead>
             <tr>
+              <th className="checkbox-col">
+                <input 
+                  type="checkbox" 
+                  checked={selectedCustomers.size === displayedCustomers.length && displayedCustomers.length > 0}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th onClick={() => handleSort('name')}>
                 <div className="th-content">
-                  Customer 
+                  Customer
                   {sortConfig.key === 'name' && (
                     <span className="sort-icon">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                   )}
@@ -195,49 +256,68 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            {displayedCustomers.map((customer) => (
-              <tr key={customer.id} className="customer-row">
-                <td>
-                  <div className="customer-info">
-                    <img src={customer.avatar} alt="" className="avatar" />
-                    <div>
-                      <div className="customer-name">{customer.name}</div>
-                      <div className="customer-phone">{customer.phone}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>{customer.score}</td>
-                <td>{customer.email}</td>
-                <td>{new Date(customer.lastMessageAt).toLocaleString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  hour12: true
-                })}</td>
-                <td>
-                  <div className="added-by">
-                    <span className="user-icon">👤</span>
-                    {customer.addedBy}
-                  </div>
+            {displayedCustomers.length === 0 && !searching ? (
+              <tr>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                  No customers found
                 </td>
               </tr>
-            ))}
+            ) : (
+              displayedCustomers.map((customer) => (
+                <tr key={customer.id}>
+                  <td className="checkbox-col">
+                    <input 
+                      type="checkbox"
+                      checked={selectedCustomers.has(customer.id)}
+                      onChange={() => toggleSelectCustomer(customer.id)}
+                    />
+                  </td>
+                  <td>
+                    <div className="customer-info">
+                      <img src={customer.avatar} alt="" className="avatar" />
+                      <div>
+                        <div className="customer-name">{customer.name}</div>
+                        <div className="customer-phone">{customer.phone}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{customer.score}</td>
+                  <td className="email-col">{customer.email}</td>
+                  <td className="date-col">
+                    {new Date(customer.lastMessageAt).toLocaleString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </td>
+                  <td>
+                    <div className="added-by">
+                      <svg className="user-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      {customer.addedBy}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 
-        {/* Infinite scroll trigger */}
-        {hasMore && (
+        {hasMore && !isSearching && !searching && (
           <div ref={observerTarget} className="loading-more">
-            <div className="spinner"></div>
-            <p>Loading more customers...</p>
+            {loadingMore && <div className="spinner"></div>}
+            <p>{loadingMore ? 'Loading more customers...' : 'Scroll for more'}</p>
           </div>
         )}
 
-        {!hasMore && displayedCustomers.length > 0 && (
+        {!hasMore && displayedCustomers.length > 0 && !searching && (
           <div className="end-message">
-            <p>✓ All {filteredCustomers.length} customers loaded</p>
+            <p>Showing {displayedCustomers.length.toLocaleString()} customers</p>
           </div>
         )}
       </div>

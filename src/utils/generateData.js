@@ -1,4 +1,3 @@
-// Helper functions (same as before)
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -32,10 +31,9 @@ function generateAvatar(name) {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`;
 }
 
-// Async generator for progress reporting
 export async function* generateCustomersWithProgress(count = 1000000) {
   const customers = [];
-  const batchSize = 10000; // Report progress every 10k records
+  const batchSize = 10000; 
   
   for (let i = 0; i < count; i++) {
     const firstName = randomChoice(firstNames);
@@ -53,9 +51,8 @@ export async function* generateCustomersWithProgress(count = 1000000) {
       avatar: generateAvatar(fullName + i)
     });
     
-    // Yield progress every batchSize records
+    // trying to yeild progress
     if ((i + 1) % batchSize === 0 || i === count - 1) {
-      // Allow UI to update
       await new Promise(resolve => setTimeout(resolve, 0));
       
       yield {
@@ -70,7 +67,7 @@ export async function* generateCustomersWithProgress(count = 1000000) {
   return customers;
 }
 
-// Regular synchronous version (for non-UI contexts)
+// generating data
 export function generateCustomers(count = 1000000) {
   const customers = [];
   

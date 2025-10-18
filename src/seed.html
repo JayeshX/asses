@@ -121,10 +121,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>🌱 Database Seeder</h1>
+    <h1> Database Seeder</h1>
     
     <div class="warning">
-      <strong>⚠️ Note:</strong> This will generate 1 million customer records. 
+      <strong>Note:</strong> This will generate 1 million customer records. 
       The process takes 30-60 seconds. Keep this tab open until complete.
     </div>
     
@@ -160,7 +160,7 @@
     </div>
     
     <div id="complete" class="complete">
-      <h3>✅ Seeding Complete!</h3>
+      <h3>Seeding Complete!</h3>
       <p>Database successfully populated with <strong id="finalCount">0</strong> customers.</p>
       <p>Total time: <strong id="totalTime">0</strong> seconds</p>
       <p style="margin-top: 15px;">
@@ -202,7 +202,7 @@
         const count = await getCustomerCount(db);
         
         if (count > 0) {
-          stageInfo.textContent = `❌ Database already has ${count} customers. Clear IndexedDB first to re-seed.`;
+          stageInfo.textContent = `Database already has ${count} customers. Clear IndexedDB first to re-seed.`;
           stageInfo.style.background = '#fff3cd';
           stageInfo.style.borderLeftColor = '#ffc107';
           btn.disabled = false;
@@ -211,7 +211,7 @@
         
         // Stage 1: Generate Data
         currentStage.textContent = 'Generating';
-        stageInfo.textContent = '⚙️ Generating 1,000,000 customer records...';
+        stageInfo.textContent = 'Generating 1,000,000 customer records...';
         startTime = Date.now();
         let customers = [];
         
@@ -234,7 +234,7 @@
         }
         
         const genTime = ((Date.now() - startTime) / 1000).toFixed(2);
-        stageInfo.textContent = `✅ Generated 1M records in ${genTime}s. Now inserting into IndexedDB...`;
+        stageInfo.textContent = `Generated 1M records in ${genTime}s. Now inserting into IndexedDB...`;
         
         // Stage 2: Insert into IndexedDB
         currentStage.textContent = 'Inserting';
@@ -248,7 +248,7 @@
           const elapsed = (Date.now() - startTime) / 1000;
           elapsedTime.textContent = elapsed.toFixed(1) + 's';
           
-          stageInfo.textContent = `💾 Inserting... ${progress.inserted.toLocaleString()} / ${totalRecords.toLocaleString()}`;
+          stageInfo.textContent = `Inserting... ${progress.inserted.toLocaleString()} / ${totalRecords.toLocaleString()}`;
         }
         
         const insertTime = ((Date.now() - insertStartTime) / 1000).toFixed(2);
@@ -258,7 +258,7 @@
         progressFill.style.width = '100%';
         progressFill.textContent = '100%';
         currentStage.textContent = 'Complete';
-        stageInfo.textContent = `✅ Success! Generated in ${genTime}s, inserted in ${insertTime}s`;
+        stageInfo.textContent = `Success! Generated in ${genTime}s, inserted in ${insertTime}s`;
         stageInfo.style.background = '#d4edda';
         stageInfo.style.borderLeftColor = '#28a745';
         
@@ -267,7 +267,7 @@
         complete.classList.add('show');
         
       } catch (error) {
-        stageInfo.textContent = `❌ Error: ${error.message}`;
+        stageInfo.textContent = `Error: ${error.message}`;
         stageInfo.style.background = '#f8d7da';
         stageInfo.style.borderLeftColor = '#dc3545';
         btn.disabled = false;
